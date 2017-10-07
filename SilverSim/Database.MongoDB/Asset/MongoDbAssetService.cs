@@ -27,6 +27,7 @@ using SilverSim.ServiceInterfaces.Asset;
 using SilverSim.ServiceInterfaces.Database;
 using SilverSim.Types;
 using SilverSim.Types.Asset;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
@@ -316,6 +317,12 @@ namespace SilverSim.Database.MongoDB.Asset
             metadata.CreateTime = Date.UnixTimeToDateTime((ulong)assetref.GetValue("create_time").AsInt64);
             metadata.Type = (AssetType)assetref.GetValue("type").AsInt32;
             hash = assetref.GetValue("hash").AsString;
+            if(DateTime.UtcNow - metadata.AccessTime > TimeSpan.FromHours(1))
+            {
+                m_AssetRefs.UpdateOne(
+                    filter,
+                    new BsonDocument { { "access_time", (long)Date.Now.AsULong } });
+            }
             return true;
         }
 
@@ -330,6 +337,13 @@ namespace SilverSim.Database.MongoDB.Asset
             }
             BsonDocument assetref = result[0];
             hash = assetref.GetValue("hash").AsString;
+            Date accessTime = Date.UnixTimeToDateTime((ulong)assetref.GetValue("access_time").AsInt64);
+            if (DateTime.UtcNow - accessTime > TimeSpan.FromHours(1))
+            {
+                m_AssetRefs.UpdateOne(
+                    filter,
+                    new BsonDocument { { "access_time", (long)Date.Now.AsULong } });
+            }
             return true;
         }
 
