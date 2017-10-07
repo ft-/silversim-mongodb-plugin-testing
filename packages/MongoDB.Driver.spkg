@@ -1,6 +1,7 @@
 <?xml version="1.0"?>
 <package>
 	<name>MongoDB.Driver</name>
+	<license>Apache 2.0</license>
 	<files>
 		<file name="bin/MongoDB.Driver.dll" is-version-src="true"/>
 		<file name="bin/MongoDB.Driver.Core.dll"/>
