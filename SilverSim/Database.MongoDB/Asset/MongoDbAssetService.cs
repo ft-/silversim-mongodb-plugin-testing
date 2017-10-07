@@ -35,7 +35,7 @@ using System.Security.Cryptography;
 namespace SilverSim.Database.MongoDB.Asset
 {
     [PluginName("Assets")]
-    public sealed class MongoDbAssetService : AssetServiceInterface, IAssetMetadataServiceInterface, IAssetDataServiceInterface, IPlugin, IDBServiceInterface
+    public sealed partial class MongoDbAssetService : AssetServiceInterface, IAssetMetadataServiceInterface, IAssetDataServiceInterface, IPlugin, IDBServiceInterface
     {
         private MongoClient m_Client;
         private IMongoCollection<BsonDocument> m_AssetRefs;
@@ -47,7 +47,7 @@ namespace SilverSim.Database.MongoDB.Asset
         {
             m_ConnectionString = config.GetString("ConnectionString");
             m_DatabaseName = config.GetString("Database");
-            References = new DefaultAssetReferencesService(this);
+            References = new MongoDbAssetReferencesService(this);
         }
 
         public override AssetData this[UUID key]
@@ -93,6 +93,60 @@ namespace SilverSim.Database.MongoDB.Asset
 
         public override AssetReferencesServiceInterface References { get; }
 
+        public sealed class MongoDbAssetReferencesService : AssetReferencesServiceInterface
+        {
+            private readonly MongoDbAssetService m_AssetService;
+
+            internal MongoDbAssetReferencesService(MongoDbAssetService assetService)
+            {
+                m_AssetService = assetService;
+            }
+
+            public override List<UUID> this[UUID key] => m_AssetService.GetAssetRefs(key);
+        }
+
+        internal List<UUID> GetAssetRefs(UUID key)
+        {
+            var references = new List<UUID>();
+
+            var filter = Builders<BsonDocument>.Filter.Eq("id", key.ToString());
+            var result = m_AssetRefs.Find(filter).ToList();
+            if (result.Count == 0)
+            {
+                throw new AssetNotFoundException(key);
+            }
+            BsonDocument assetref = result[0];
+            if(assetref.GetValue("usesprocessed").AsBoolean)
+            {
+                foreach(BsonValue val in assetref.GetValue("references").AsBsonArray)
+                {
+                    references.Add(val.AsString);
+                }
+                return references;
+            }
+            var data = new AssetData
+            {
+                ID = key,
+                Name = assetref.GetValue("name").AsString,
+                Temporary = assetref.GetValue("temporary").AsBoolean,
+                Local = assetref.GetValue("local").AsBoolean,
+                Flags = (AssetFlags)assetref.GetValue("flags").AsInt32,
+                AccessTime = Date.UnixTimeToDateTime((ulong)assetref.GetValue("access_time").AsInt64),
+                CreateTime = Date.UnixTimeToDateTime((ulong)assetref.GetValue("create_time").AsInt64),
+                Type = (AssetType)assetref.GetValue("type").AsInt32
+            };
+            string hash = assetref.GetValue("hash").AsString;
+            byte[] binarydata;
+            if (TryGetData(hash, out binarydata))
+            {
+                data.Data = binarydata;
+                references = data.References;
+            }
+
+            return references;
+        }
+
+
         public override IAssetDataServiceInterface Data => this;
 
         public override void Delete(UUID id)
@@ -111,9 +165,24 @@ namespace SilverSim.Database.MongoDB.Asset
         public override Dictionary<UUID, bool> Exists(List<UUID> assets)
         {
             var result = new Dictionary<UUID, bool>();
-            foreach(UUID asset in assets)
+            if(assets.Count == 0)
             {
-                result.Add(asset, Exists(asset));
+                return result;
+            }
+            foreach (UUID asset in assets)
+            {
+                result.Add(asset, false);
+            }
+
+            var filter = Builders<BsonDocument>.Filter.Eq("id", assets[0].ToString());
+            for (int i = 1; i < assets.Count; ++i)
+            {
+                filter |= Builders<BsonDocument>.Filter.Eq("id", assets[i].ToString());
+            }
+
+            foreach(BsonDocument doc in m_AssetRefs.Find(filter).ToList())
+            {
+                result[doc["id"].AsString] = true;
             }
             return result;
         }
@@ -132,11 +201,12 @@ namespace SilverSim.Database.MongoDB.Asset
                 { "local", asset.Local },
                 { "temporary", asset.Temporary },
                 { "type", (int)asset.Type },
-                { "name", asset.Name },
+                { "name", asset.Name.TrimToMaxLength(64) },
                 { "flags", (int)asset.Flags },
                 { "create_time", (long)asset.CreateTime.AsULong },
                 { "access_time", (long)asset.AccessTime.AsULong },
-                { "hash", hash }
+                { "hash", hash },
+                { "usesprocessed", false }
             };
             var asset_document = new BsonDocument
             {
@@ -144,20 +214,24 @@ namespace SilverSim.Database.MongoDB.Asset
                 { "data", asset.Data }
             };
 
-            m_Assets.ReplaceOne(
-                Builders<BsonDocument>.Filter.Eq("hash", hash), 
-                asset_document,
-                new UpdateOptions
-                {
-                    IsUpsert = true
-                });
-            m_AssetRefs.ReplaceOne(
-                Builders<BsonDocument>.Filter.Eq("id", asset.ID.ToString()),
-                ref_document,
-                new UpdateOptions
-                {
-                    IsUpsert = true
-                });
+            try
+            {
+                m_Assets.InsertOne(asset_document);
+            }
+            catch(MongoWriteException)
+            {
+                /* ignore */
+            }
+            try
+            {
+                m_AssetRefs.InsertOne(ref_document);
+            }
+            catch(MongoWriteException)
+            {
+                throw new AssetStoreFailedException();
+            }
+
+            EnqueueAsset(asset.ID);
         }
 
         public override bool TryGetValue(UUID key, out AssetData assetData)
@@ -268,6 +342,13 @@ namespace SilverSim.Database.MongoDB.Asset
             var database = m_Client.GetDatabase(m_DatabaseName);
             m_AssetRefs = database.GetCollection<BsonDocument>("assetrefs");
             m_Assets = database.GetCollection<BsonDocument>("assets");
+            var options = new CreateIndexOptions { Unique = true };
+            var field = new StringFieldDefinition<BsonDocument>("id");
+            var indexDefinition = new IndexKeysDefinitionBuilder<BsonDocument>().Ascending(field);
+            m_AssetRefs.Indexes.CreateOne(indexDefinition, options);
+            field = new StringFieldDefinition<BsonDocument>("hash");
+            indexDefinition = new IndexKeysDefinitionBuilder<BsonDocument>().Ascending(field);
+            m_Assets.Indexes.CreateOne(indexDefinition, options);
         }
     }
 }
