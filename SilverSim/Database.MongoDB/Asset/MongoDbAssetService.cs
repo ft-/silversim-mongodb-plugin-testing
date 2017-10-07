@@ -33,6 +33,8 @@ using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
+using System.Threading;
+using SilverSim.Threading;
 
 namespace SilverSim.Database.MongoDB.Asset
 {
@@ -45,6 +47,7 @@ namespace SilverSim.Database.MongoDB.Asset
         private IMongoCollection<BsonDocument> m_Assets;
         private readonly string m_ConnectionString;
         private readonly string m_DatabaseName;
+        private readonly ReaderWriterLock m_ReaderWriterLock = new ReaderWriterLock();
 
         public MongoDbAssetService(IConfig config)
         {
@@ -221,22 +224,26 @@ namespace SilverSim.Database.MongoDB.Asset
                 { "data", asset.Data }
             };
 
-            try
+            /* only have to lock out asset purge here */
+            m_ReaderWriterLock.AcquireReaderLock(() =>
             {
-                m_Assets.InsertOne(asset_document);
-            }
-            catch(MongoWriteException)
-            {
-                /* ignore */
-            }
-            try
-            {
-                m_AssetRefs.InsertOne(ref_document);
-            }
-            catch(MongoWriteException)
-            {
-                throw new AssetStoreFailedException();
-            }
+                try
+                {
+                    m_Assets.InsertOne(asset_document);
+                }
+                catch (MongoWriteException)
+                {
+                    /* ignore */
+                }
+                try
+                {
+                    m_AssetRefs.InsertOne(ref_document);
+                }
+                catch (MongoWriteException)
+                {
+                    throw new AssetStoreFailedException();
+                }
+            });
 
             EnqueueAsset(asset.ID);
         }

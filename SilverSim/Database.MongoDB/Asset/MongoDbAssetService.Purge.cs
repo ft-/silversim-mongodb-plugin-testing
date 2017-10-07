@@ -53,33 +53,40 @@ namespace SilverSim.Database.MongoDB.Asset
         public long PurgeUnusedAssets()
         {
             long purged = 0;
-#if CHANGE_FOR_MONGO
-            using (var conn = new MySqlConnection(m_ConnectionString))
+            var accesstime = (long)(Date.GetUnixTime() - 2 * 24 * 3600);
+            var hashes = new List<string>();
+            foreach(BsonDocument doc in m_AssetRefs.Find(Builders<BsonDocument>.Filter.Eq("usesprocessed", true) &
+                Builders<BsonDocument>.Filter.Lt("access_time", accesstime)).ToEnumerable())
             {
-                conn.Open();
-                using (var cmd = new MySqlCommand("DELETE FROM assetrefs WHERE usesprocessed = 1 AND access_time < @access_time AND NOT EXISTS (SELECT NULL FROM assetsinuse WHERE usesid = assetrefs.id)", conn))
+                if(m_AssetRefs.Find(Builders<BsonDocument>.Filter.Eq("references", doc["id"])).ToList().Count == 0)
                 {
-                    ulong now = Date.GetUnixTime() - 2 * 24 * 3600;
-                    cmd.Parameters.AddParameter("@access_time", now);
-                    purged = cmd.ExecuteNonQuery();
-                }
-                using (var cmd = new MySqlCommand("DELETE FROM assetsinuse WHERE NOT EXISTS (SELECT NULL FROM assetrefs WHERE assetsinuse.id = assetrefs.id)", conn))
-                {
-                    cmd.ExecuteNonQuery();
-                }
-                using (var cmd = new MySqlCommand("DELETE FROM assetdata WHERE NOT EXISTS (SELECT NULL FROM assetrefs WHERE assetdata.hash = assetrefs.hash AND assetdata.assetType = assetrefs.assetType)", conn))
-                {
-                    cmd.ExecuteNonQuery();
+                    string hash = doc["hash"].AsString;
+                    m_AssetRefs.DeleteOne(Builders<BsonDocument>.Filter.Eq("id", doc["id"]));
+                    if(!hashes.Contains(hash))
+                    {
+                        hashes.Add(hash);
+                    }
                 }
             }
-#endif
+
+            foreach(string hash in hashes)
+            {
+                m_ReaderWriterLock.AcquireWriterLock(() =>
+                {
+                    /* make this deletion atomic */
+                    if (m_AssetRefs.Find(Builders<BsonDocument>.Filter.Eq("hash", hash)).ToList().Count == 0)
+                    {
+                        m_Assets.DeleteOne(Builders<BsonDocument>.Filter.Eq("hash", hash));
+                    }
+                });
+            }
             return purged;
         }
 
         private void GenerateAssetInUseEntries(AssetData data)
         {
             List<UUID> references = data.References;
-            var refs = new List<string>();
+            var refs = new BsonArray();
             foreach(UUID reference in references)
             {
                 refs.Add(reference.ToString());
@@ -87,7 +94,7 @@ namespace SilverSim.Database.MongoDB.Asset
 
             var doc = new BsonDocument
             {
-                { "references", refs.ToBson() },
+                { "references", refs },
                 { "usesprocessed", true }
             };
 
