@@ -27,7 +27,6 @@ using SilverSim.ServiceInterfaces.Database;
 using SilverSim.ServiceInterfaces.Maptile;
 using SilverSim.Types;
 using SilverSim.Types.Maptile;
-using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 
