@@ -28,6 +28,7 @@ using SilverSim.ServiceInterfaces.Database;
 using SilverSim.Types;
 using SilverSim.Types.Asset;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
@@ -35,6 +36,7 @@ using System.Security.Cryptography;
 namespace SilverSim.Database.MongoDB.Asset
 {
     [PluginName("Assets")]
+    [Description("MongoDB Asset Backend Connector")]
     public sealed partial class MongoDbAssetService : AssetServiceInterface, IAssetMetadataServiceInterface, IAssetDataServiceInterface, IPlugin, IDBServiceInterface
     {
         private MongoClient m_Client;
