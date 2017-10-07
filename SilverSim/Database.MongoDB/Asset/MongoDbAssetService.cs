@@ -50,6 +50,10 @@ namespace SilverSim.Database.MongoDB.Asset
             References = new MongoDbAssetReferencesService(this);
         }
 
+        public override bool IsSameServer(AssetServiceInterface other) =>
+            other.GetType() == typeof(MongoDbAssetService) &&
+                (m_ConnectionString == ((MongoDbAssetService)other).m_ConnectionString);
+
         public override AssetData this[UUID key]
         {
             get
