@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<package>
+	<name>SilverSim.Database.MongoDB</name>
+	<default-configuration>
+		<source>SilverSim.Database.MongoDB:PackageConfig.ini</source>
+	</default-configuration>
+	<files>
+		<file name="bin/plugins/SilverSim.Database.MongoDB.dll" is-version-src="true"/>
+	</files>
+</package>
