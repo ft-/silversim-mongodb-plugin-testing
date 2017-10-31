@@ -25,11 +25,7 @@ using MongoDB.Driver;
 using Nini.Config;
 using SilverSim.Main.Common;
 using SilverSim.ServiceInterfaces.Database;
-using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text;
 
 namespace SilverSim.Tests.Preconditions.MongoDB
 {
