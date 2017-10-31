@@ -68,7 +68,10 @@ namespace SilverSim.Tests.Preconditions.MongoDB
             m_Log.InfoFormat("Removing {0} collections", collections.Count);
             foreach (string collname in collections)
             {
-                database.DropCollection(collname);
+                if(collname != "system.indexes")
+                {
+                    database.DropCollection(collname);
+                }
             }
         }
     }
