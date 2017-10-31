@@ -369,7 +369,7 @@ namespace SilverSim.Database.MongoDB.Asset
             {
                 if (VersionInfo.IsPlatformMono)
                 {
-                    throw new ConfigurationLoader.ConfigurationErrorException("MongoDB plugin needs Mono 4.4");
+                    throw new ConfigurationLoader.ConfigurationErrorException("MongoDB plugin needs at least Mono 4.4");
                 }
                 throw;
             }
