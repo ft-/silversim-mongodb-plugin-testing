@@ -361,7 +361,18 @@ namespace SilverSim.Database.MongoDB.Asset
 
         public void VerifyConnection()
         {
-            m_Client = new MongoClient(m_ConnectionString);
+            try
+            {
+                m_Client = new MongoClient(m_ConnectionString);
+            }
+            catch (FileNotFoundException)
+            {
+                if (VersionInfo.IsPlatformMono)
+                {
+                    throw new ConfigurationLoader.ConfigurationErrorException("MongoDB plugin needs Mono 4.4");
+                }
+                throw;
+            }
         }
 
         public void ProcessMigrations()

@@ -26,6 +26,7 @@ using Nini.Config;
 using SilverSim.Main.Common;
 using SilverSim.ServiceInterfaces.Database;
 using System.Collections.Generic;
+using System.IO;
 
 namespace SilverSim.Tests.Preconditions.MongoDB
 {
@@ -54,7 +55,19 @@ namespace SilverSim.Tests.Preconditions.MongoDB
 
         public void VerifyConnection()
         {
-            var client = new MongoClient(m_ConnectionString);
+            MongoClient client;
+            try
+            {
+                client = new MongoClient(m_ConnectionString);
+            }
+            catch (FileNotFoundException)
+            {
+                if (VersionInfo.IsPlatformMono)
+                {
+                    throw new ConfigurationLoader.ConfigurationErrorException("MongoDB plugin needs Mono 4.4");
+                }
+                throw;
+            }
             var database = client.GetDatabase(m_DatabaseName);
             var collections = new List<string>();
             foreach (var item in database.ListCollectionsAsync().Result.ToListAsync<BsonDocument>().Result)

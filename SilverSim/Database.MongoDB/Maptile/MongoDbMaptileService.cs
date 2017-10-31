@@ -29,6 +29,7 @@ using SilverSim.Types;
 using SilverSim.Types.Maptile;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.IO;
 
 namespace SilverSim.Database.MongoDB.Maptile
 {
@@ -140,7 +141,18 @@ namespace SilverSim.Database.MongoDB.Maptile
 
         public void VerifyConnection()
         {
-            m_Client = new MongoClient(m_ConnectionString);
+            try
+            {
+                m_Client = new MongoClient(m_ConnectionString);
+            }
+            catch (FileNotFoundException)
+            {
+                if (VersionInfo.IsPlatformMono)
+                {
+                    throw new ConfigurationLoader.ConfigurationErrorException("MongoDB plugin needs Mono 4.4");
+                }
+                throw;
+            }
         }
     }
 }
