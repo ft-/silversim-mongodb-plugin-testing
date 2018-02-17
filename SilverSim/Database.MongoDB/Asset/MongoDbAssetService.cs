@@ -25,6 +25,7 @@ using Nini.Config;
 using SilverSim.Main.Common;
 using SilverSim.ServiceInterfaces.Asset;
 using SilverSim.ServiceInterfaces.Database;
+using SilverSim.Threading;
 using SilverSim.Types;
 using SilverSim.Types.Asset;
 using System;
@@ -34,7 +35,6 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Threading;
-using SilverSim.Threading;
 
 namespace SilverSim.Database.MongoDB.Asset
 {
