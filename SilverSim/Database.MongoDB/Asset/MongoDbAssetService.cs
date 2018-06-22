@@ -60,45 +60,6 @@ namespace SilverSim.Database.MongoDB.Asset
             other.GetType() == typeof(MongoDbAssetService) &&
                 (m_ConnectionString == ((MongoDbAssetService)other).m_ConnectionString);
 
-        public override AssetData this[UUID key]
-        {
-            get
-            {
-                AssetData data;
-                if(!TryGetValue(key, out data))
-                {
-                    throw new AssetNotFoundException(key);
-                }
-                return data;
-            }
-        }
-
-        AssetMetadata IAssetMetadataServiceInterface.this[UUID key]
-        {
-            get
-            {
-                AssetMetadata metadata;
-                if(!Metadata.TryGetValue(key, out metadata))
-                {
-                    throw new AssetNotFoundException(key);
-                }
-                return metadata;
-            }
-        }
-
-        Stream IAssetDataServiceInterface.this[UUID key]
-        {
-            get
-            {
-                Stream s;
-                if(!Data.TryGetValue(key, out s))
-                {
-                    throw new AssetNotFoundException(key);
-                }
-                return s;
-            }
-        }
-
         public override IAssetMetadataServiceInterface Metadata => this;
 
         public override AssetReferencesServiceInterface References { get; }
