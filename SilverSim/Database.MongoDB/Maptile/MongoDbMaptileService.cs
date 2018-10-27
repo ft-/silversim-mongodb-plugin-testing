@@ -48,15 +48,14 @@ namespace SilverSim.Database.MongoDB.Maptile
             m_DatabaseName = config.GetString("Database");
         }
 
-        public override List<MaptileInfo> GetUpdateTimes(UUID scopeid, GridVector minloc, GridVector maxloc, int zoomlevel)
+        public override List<MaptileInfo> GetUpdateTimes(GridVector minloc, GridVector maxloc, int zoomlevel)
         {
             var result = m_Maptiles.Find(
                 Builders<BsonDocument>.Filter.Gte("locx", (int)minloc.X) &
                 Builders<BsonDocument>.Filter.Lte("locx", (int)maxloc.X) &
                 Builders<BsonDocument>.Filter.Gte("locy", (int)minloc.Y) &
                 Builders<BsonDocument>.Filter.Lte("locy", (int)minloc.Y) &
-                Builders<BsonDocument>.Filter.Eq("zoomlevel", zoomlevel) &
-                Builders<BsonDocument>.Filter.Eq("scopeid", scopeid.ToString())).ToList();
+                Builders<BsonDocument>.Filter.Eq("zoomlevel", zoomlevel)).ToList();
 
             var infos = new List<MaptileInfo>();
             foreach(BsonDocument doc in result)
@@ -65,7 +64,6 @@ namespace SilverSim.Database.MongoDB.Maptile
                 {
                     Location = new GridVector((uint)doc.GetValue("locx").AsInt32, (uint)doc.GetValue("locy").AsInt32),
                     ZoomLevel = doc.GetValue("zoomlevel").AsInt32,
-                    ScopeID = doc.GetValue("scopeid").AsString,
                     LastUpdate = Date.UnixTimeToDateTime((ulong)doc.GetValue("lastupdate").AsInt64)
                 };
                 infos.Add(info);
@@ -79,12 +77,11 @@ namespace SilverSim.Database.MongoDB.Maptile
             m_Maptiles = database.GetCollection<BsonDocument>("maptiles");
         }
 
-        public override bool Remove(UUID scopeid, GridVector location, int zoomlevel)
+        public override bool Remove(GridVector location, int zoomlevel)
         {
             var deleteResult = m_Maptiles.DeleteOne(Builders<BsonDocument>.Filter.Eq("locx", (int)location.X) &
                 Builders<BsonDocument>.Filter.Eq("locy", (int)location.Y) &
-                Builders<BsonDocument>.Filter.Eq("zoomlevel", zoomlevel) &
-                Builders<BsonDocument>.Filter.Eq("scopeid", scopeid.ToString()));
+                Builders<BsonDocument>.Filter.Eq("zoomlevel", zoomlevel));
             return deleteResult.DeletedCount != 0;
         }
 
@@ -100,7 +97,6 @@ namespace SilverSim.Database.MongoDB.Maptile
                 { "locx", data.Location.X },
                 { "locy", data.Location.Y },
                 { "zoomlevel", data.ZoomLevel },
-                { "scopeid",  data.ScopeID.ToString() },
                 { "contenttype", data.ContentType },
                 { "data", data.Data },
                 { "lastupdate", (long)Date.Now.AsULong }
@@ -108,18 +104,16 @@ namespace SilverSim.Database.MongoDB.Maptile
             m_Maptiles.UpdateOne(
                 Builders<BsonDocument>.Filter.Eq("locx", (int)data.Location.X) &
                 Builders<BsonDocument>.Filter.Eq("locy", (int)data.Location.Y) &
-                Builders<BsonDocument>.Filter.Eq("zoomlevel", data.ZoomLevel) &
-                Builders<BsonDocument>.Filter.Eq("scopeid", data.ScopeID.ToString()),
+                Builders<BsonDocument>.Filter.Eq("zoomlevel", data.ZoomLevel),
                 doc,
                 new UpdateOptions { IsUpsert = true });
         }
 
-        public override bool TryGetValue(UUID scopeid, GridVector location, int zoomlevel, out MaptileData data)
+        public override bool TryGetValue(GridVector location, int zoomlevel, out MaptileData data)
         {
             var result = m_Maptiles.Find(Builders<BsonDocument>.Filter.Eq("locx", (int)location.X) &
                 Builders<BsonDocument>.Filter.Eq("locy", (int)location.Y) &
-                Builders<BsonDocument>.Filter.Eq("zoomlevel", zoomlevel) &
-                Builders<BsonDocument>.Filter.Eq("scopeid", scopeid.ToString())).ToList();
+                Builders<BsonDocument>.Filter.Eq("zoomlevel", zoomlevel)).ToList();
             if(result.Count == 0)
             {
                 data = null;
@@ -131,7 +125,6 @@ namespace SilverSim.Database.MongoDB.Maptile
             {
                 Location = new GridVector((uint)doc.GetValue("locx").AsInt32, (uint)doc.GetValue("locy").AsInt32),
                 ZoomLevel = doc.GetValue("zoomlevel").AsInt32,
-                ScopeID = doc.GetValue("scopeid").AsString,
                 ContentType = doc.GetValue("contenttype").AsString,
                 Data = doc.GetValue("data").AsByteArray,
                 LastUpdate = Date.UnixTimeToDateTime((ulong)doc.GetValue("lastupdate").AsInt64)
